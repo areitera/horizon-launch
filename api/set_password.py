@@ -9,15 +9,22 @@ If no password is piped via stdin, prompts interactively.
 
 import argparse
 import getpass
+import hashlib
+import os
 import sqlite3
 import sys
 import time
 from pathlib import Path
 
-from passlib.context import CryptContext
+import bcrypt
 
-DB_PATH = Path(__import__("os").environ.get("HL_DB_PATH", "data/site.db")).resolve()
-pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+DB_PATH = Path(os.environ.get("HL_DB_PATH", "data/site.db")).resolve()
+
+
+def hash_password(password: str) -> str:
+	# Same pre-hash strategy as app.py — keeps long passwords working past bcrypt's 72-byte cap
+	prepped = hashlib.sha256(password.encode("utf-8")).digest()
+	return bcrypt.hashpw(prepped, bcrypt.gensalt(rounds=12)).decode("ascii")
 
 
 def main():
@@ -42,7 +49,7 @@ def main():
 		print("Password must be at least 8 characters.", file=sys.stderr)
 		sys.exit(1)
 
-	password_hash = pwd_ctx.hash(password)
+	password_hash = hash_password(password)
 	now = int(time.time())
 
 	DB_PATH.parent.mkdir(parents=True, exist_ok=True)

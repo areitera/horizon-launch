@@ -2,4 +2,4 @@ fastapi>=0.118
 uvicorn[standard]>=0.34
 pydantic[email]>=2.11
 httpx>=0.28
-passlib[bcrypt]>=1.7.4
+bcrypt>=4.2

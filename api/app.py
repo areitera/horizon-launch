@@ -33,10 +33,10 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional
 
+import bcrypt
 import httpx
 from fastapi import Cookie, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr, Field
 
 DB_PATH = Path(os.environ.get("HL_DB_PATH", "data/site.db")).resolve()
@@ -45,7 +45,25 @@ DEV_MODE = os.environ.get("HL_DEV", "") == "1"
 SESSION_DAYS = int(os.environ.get("HL_SESSION_DAYS", "7"))
 COOKIE_NAME = "hl_session"
 
-pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# bcrypt has a 72-byte hard limit on the input. We pre-hash with sha256 first
+# so passwords of any length verify correctly and consistently.
+import hashlib
+
+
+def _bcrypt_prep(password: str) -> bytes:
+	# sha256 → 32 bytes (well under bcrypt's 72-byte cap), preserves entropy
+	return hashlib.sha256(password.encode("utf-8")).digest()
+
+
+def hash_password(password: str) -> str:
+	return bcrypt.hashpw(_bcrypt_prep(password), bcrypt.gensalt(rounds=12)).decode("ascii")
+
+
+def verify_password(password: str, hashed: str) -> bool:
+	try:
+		return bcrypt.checkpw(_bcrypt_prep(password), hashed.encode("ascii"))
+	except (ValueError, TypeError):
+		return False
 
 TOPIC_ROUTING_DEFAULT = {
 	"general": "denise.edinger@sbdfinancial.ca",
@@ -283,12 +301,13 @@ def login(req: LoginRequest, response: Response):
 			"SELECT email, password_hash FROM users WHERE email = ?",
 			(req.email.lower(),),
 		).fetchone()
-	# Constant-ish-time even when user doesn't exist
-	hashed = row["password_hash"] if row else "$2b$12$" + "x" * 53
-	ok = pwd_ctx.verify(req.password, hashed) if row else False
+	if row and verify_password(req.password, row["password_hash"]):
+		ok = True
+	else:
+		# Run a hash against a dummy value to keep timing similar when user doesn't exist
+		hash_password("dummy-to-equalize-timing")
+		ok = False
 	if not ok:
-		# Hash a dummy password to keep timing similar across hits even when user doesn't exist
-		pwd_ctx.hash("dummy-to-equalize-timing")
 		raise HTTPException(status_code=401, detail="Invalid email or password")
 
 	token, expires = session_create(row["email"])

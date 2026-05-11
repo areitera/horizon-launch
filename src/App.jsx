@@ -218,6 +218,76 @@ function GlobalStyles() {
 }
 
 // ============================================================
+// HERO STAR — a single photo-realistic star (halo + spikes + core)
+// ============================================================
+function HeroStar({ x, y, size = 8, tint = '#cce0ff', spikes = true, scintillate = false, delay = 0 }) {
+  // Use absolute SVG positioning via outer transform
+  const wrap = scintillate ? 'hl-twinkle' : '';
+  return (
+    <g className={wrap} style={{ transform: `translate(${x}%, ${y}%)`, transformOrigin: `${x}% ${y}%`, animationDelay: `${delay}s` }}>
+      {/* Diffuse halo */}
+      <circle cx="0" cy="0" r={size * 6} fill={tint} opacity="0.08" />
+      <circle cx="0" cy="0" r={size * 3} fill={tint} opacity="0.18" />
+      <circle cx="0" cy="0" r={size * 1.5} fill={tint} opacity="0.45" />
+      {/* Diffraction spikes — thin diamond shapes, horizontal + vertical */}
+      {spikes && (
+        <>
+          <path
+            d={`M 0 ${-size * 7} L ${size * 0.35} 0 L 0 ${size * 7} L ${-size * 0.35} 0 Z`}
+            fill={tint} opacity="0.65"
+          />
+          <path
+            d={`M ${-size * 7} 0 L 0 ${size * 0.35} L ${size * 7} 0 L 0 ${-size * 0.35} Z`}
+            fill={tint} opacity="0.65"
+          />
+        </>
+      )}
+      {/* Bright core */}
+      <circle cx="0" cy="0" r={size * 0.5} fill="#ffffff" />
+    </g>
+  );
+}
+
+// ============================================================
+// BIG BANK PLANET — a distant institutional celestial body (no labels)
+// Represents the "big banks" Horizon's families navigate past.
+// ============================================================
+function BigBankPlanet({ x, y, size = 200, tone = 'cool' }) {
+  // Cool gray-blue palette so it reads as "cold institutional"
+  const colors = tone === 'cool'
+    ? { surface: '#3a4866', highlight: '#5a6885', shadow: '#1f2a44', band: '#2a3554' }
+    : { surface: '#4a3550', highlight: '#65495e', shadow: '#28192e', band: '#382540' };
+  const gid = `planet-${x}-${y}`.replace(/\./g, '_');
+  return (
+    <svg
+      style={{ position: 'absolute', left: `${x}%`, top: `${y}%`, width: size, height: size, opacity: 0.45, pointerEvents: 'none' }}
+      viewBox="0 0 100 100"
+    >
+      <defs>
+        <radialGradient id={`${gid}-body`} cx="35%" cy="35%">
+          <stop offset="0%" stopColor={colors.highlight} />
+          <stop offset="55%" stopColor={colors.surface} />
+          <stop offset="100%" stopColor={colors.shadow} />
+        </radialGradient>
+        <radialGradient id={`${gid}-glow`} cx="50%" cy="50%">
+          <stop offset="55%" stopColor={colors.surface} stopOpacity="0" />
+          <stop offset="80%" stopColor={colors.highlight} stopOpacity="0.25" />
+          <stop offset="100%" stopColor={colors.highlight} stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      {/* Soft atmospheric glow */}
+      <circle cx="50" cy="50" r="55" fill={`url(#${gid}-glow)`} />
+      {/* Planet body */}
+      <circle cx="50" cy="50" r="40" fill={`url(#${gid}-body)`} />
+      {/* Subtle horizontal bands — implies institutional gravity, columns etc. without being literal */}
+      <ellipse cx="50" cy="48" rx="40" ry="3" fill={colors.band} opacity="0.35" />
+      <ellipse cx="50" cy="54" rx="38" ry="2" fill={colors.band} opacity="0.25" />
+      <ellipse cx="50" cy="60" rx="34" ry="1.5" fill={colors.band} opacity="0.18" />
+    </svg>
+  );
+}
+
+// ============================================================
 // COSMIC BACKDROP — reusable star-field + nebula treatment
 // variant: 'hero' (most dramatic) | 'header' (medium) | 'subtle' (faint)
 // ============================================================
@@ -227,8 +297,19 @@ function CosmicBackdrop({ variant = 'header', children }) {
     const x = Math.sin(n * 12.9898) * 43758.5453;
     return x - Math.floor(x);
   };
-  const counts = { hero: { far: 80, mid: 40, near: 16 }, header: { far: 50, mid: 24, near: 10 }, subtle: { far: 30, mid: 14, near: 5 } }[variant];
-  const ringRadius = { hero: 95, header: 80, subtle: 70 }[variant];
+  const dotCounts = { hero: { far: 70, mid: 28 }, header: { far: 45, mid: 18 }, subtle: { far: 26, mid: 10 } }[variant];
+  const heroStarCount = { hero: 9, header: 5, subtle: 3 }[variant];
+
+  // Realistic star tints — mostly cool white-blue (most common in real photos),
+  // a few warm yellow-amber, occasional coral-red giant.
+  const STAR_TINTS = ['#dde7ff', '#cce0ff', '#ffffff', '#fff0d4', '#F4A33866', '#E36B4F55'];
+  const tintFor = (i) => {
+    const r = rand(i + 9000);
+    if (r > 0.95) return '#E36B4F'; // rare red
+    if (r > 0.80) return '#F4A338'; // amber
+    if (r > 0.60) return '#fff0d4'; // warm white
+    return STAR_TINTS[Math.floor(r * 4)]; // cool whites/blues
+  };
 
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
@@ -240,7 +321,7 @@ function CosmicBackdrop({ variant = 'header', children }) {
                      radial-gradient(ellipse at 50% 120%, ${C.coral}33 0%, transparent 55%)`,
       }} />
 
-      {/* Nebula glow at horizon */}
+      {/* Nebula glow at horizon (hero only) */}
       {variant === 'hero' && (
         <div className="hl-glow" style={{
           position: 'absolute', bottom: '-25%', left: '50%', transform: 'translateX(-50%)',
@@ -249,9 +330,9 @@ function CosmicBackdrop({ variant = 'header', children }) {
         }} />
       )}
 
-      {/* Drifting star layer (far, small, dim) */}
-      <svg className="hl-drift" style={{ position: 'absolute', inset: '-10%', width: '120%', height: '120%', opacity: 0.6 }} preserveAspectRatio="none">
-        {[...Array(counts.far)].map((_, i) => (
+      {/* Dim deep-field (far dots, slow drift) */}
+      <svg className="hl-drift" style={{ position: 'absolute', inset: '-10%', width: '120%', height: '120%', opacity: 0.55 }} preserveAspectRatio="none">
+        {[...Array(dotCounts.far)].map((_, i) => (
           <circle key={'f'+i}
             cx={`${rand(i + 1) * 100}%`}
             cy={`${rand(i + 200) * 100}%`}
@@ -261,47 +342,49 @@ function CosmicBackdrop({ variant = 'header', children }) {
         ))}
       </svg>
 
-      {/* Mid star layer */}
+      {/* Mid-field dots (static) */}
       <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} preserveAspectRatio="none">
-        {[...Array(counts.mid)].map((_, i) => (
+        {[...Array(dotCounts.mid)].map((_, i) => (
           <circle key={'m'+i}
             cx={`${rand(i + 500) * 100}%`}
             cy={`${rand(i + 700) * 100}%`}
-            r={rand(i + 900) > 0.75 ? 1.4 : 1}
+            r={rand(i + 900) > 0.7 ? 1.3 : 0.9}
             fill={rand(i + 1100) > 0.85 ? C.amber : C.cream}
-            opacity={0.45 + rand(i + 1300) * 0.4}
+            opacity={0.4 + rand(i + 1300) * 0.4}
           />
         ))}
       </svg>
 
-      {/* Near stars — bigger, brighter, twinkle */}
-      <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} preserveAspectRatio="none">
-        {[...Array(counts.near)].map((_, i) => {
-          const cx = rand(i + 2000) * 100;
-          const cy = rand(i + 2500) * 100;
-          const tint = rand(i + 3000) > 0.7 ? C.amber : C.cream;
+      {/* Hero stars — photo-realistic, mostly static; 1-2 scintillate subtly */}
+      <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible' }} viewBox="0 0 100 100" preserveAspectRatio="none">
+        {[...Array(heroStarCount)].map((_, i) => {
+          const x = rand(i + 6000) * 100;
+          const y = rand(i + 6500) * 90; // keep stars away from very bottom edge
+          const size = 0.45 + rand(i + 7000) * 0.55;
+          const tint = tintFor(i);
+          const scintillate = rand(i + 8000) > 0.82;
           return (
-            <g key={'n'+i} className="hl-twinkle" style={{ animationDelay: `${(rand(i + 4000) * 4).toFixed(2)}s` }}>
-              <circle cx={`${cx}%`} cy={`${cy}%`} r={1.8} fill={tint} />
-              <circle cx={`${cx}%`} cy={`${cy}%`} r={3.5} fill={tint} opacity={0.18} />
-            </g>
+            <HeroStar key={'h'+i} x={x} y={y} size={size} tint={tint}
+              scintillate={scintillate}
+              delay={rand(i + 8500) * 7}
+            />
           );
         })}
       </svg>
 
-      {/* Orbital ring decoration (subtle) */}
+      {/* Orbital ring decoration (subtle, hero/header only) */}
       {variant !== 'subtle' && (
-        <svg style={{ position: 'absolute', top: '15%', right: '-12%', width: 380, height: 380, opacity: 0.18 }} viewBox="0 0 100 100">
-          <ellipse cx="50" cy="50" rx={ringRadius / 2} ry={ringRadius / 4} fill="none" stroke={C.amber} strokeWidth="0.3" />
-          <ellipse cx="50" cy="50" rx={ringRadius / 2.4} ry={ringRadius / 3.5} fill="none" stroke={C.coral} strokeWidth="0.2" opacity="0.7" />
+        <svg style={{ position: 'absolute', top: '12%', right: '-15%', width: 420, height: 420, opacity: 0.14 }} viewBox="0 0 100 100">
+          <ellipse cx="50" cy="50" rx="47" ry="18" fill="none" stroke={C.amber} strokeWidth="0.25" transform="rotate(-12 50 50)" />
+          <ellipse cx="50" cy="50" rx="42" ry="14" fill="none" stroke={C.coral} strokeWidth="0.2" opacity="0.7" transform="rotate(-12 50 50)" />
         </svg>
       )}
 
-      {/* Occasional shooting star (hero only) */}
+      {/* Rare shooting star (hero only) */}
       {variant === 'hero' && (
         <div className="hl-shoot" style={{
           position: 'absolute', top: '18%', right: '5%',
-          width: 120, height: 1,
+          width: 140, height: 1,
           background: `linear-gradient(90deg, transparent, ${C.cream})`,
           boxShadow: `0 0 6px ${C.cream}`,
         }} />
@@ -397,10 +480,11 @@ function CosmicIcon({ name, color = C.amber, size = 44 }) {
 // ============================================================
 // LOGO — uses the brand mark (/logo.png)
 // ============================================================
-function Logo({ light = false, height = 44 }) {
+function Logo({ light = false, height = 64 }) {
   // On dark backgrounds the logo's navy ring disappears into the background;
-  // a soft amber drop-shadow makes it pop without needing a separate light variant.
-  const filter = light ? `drop-shadow(0 0 8px ${C.amber}66) brightness(1.05)` : 'none';
+  // a soft amber drop-shadow keeps it visible without needing a separate
+  // inverted version.
+  const filter = light ? `drop-shadow(0 0 12px ${C.amber}88) brightness(1.08)` : 'none';
   return (
     <div style={{ display: 'flex', alignItems: 'center' }}>
       <img
@@ -483,6 +567,10 @@ function HomePage({ setPage }) {
     <>
       <section style={{ background: C.navy, position: 'relative', overflow: 'hidden', minHeight: '92vh', display: 'flex', alignItems: 'center' }}>
         <CosmicBackdrop variant="hero" />
+
+        {/* "Big banks" — distant institutional planets the Horizon rocket is leaving behind */}
+        <BigBankPlanet x={78} y={10} size={260} tone="cool" />
+        <BigBankPlanet x={-8} y={62} size={180} tone="warm" />
 
         <div className="relative max-w-7xl mx-auto px-6 py-24 w-full">
           <div className="hl-fade-up" style={{ animationDelay: '0.05s' }}>
@@ -1207,8 +1295,8 @@ function Footer({ setPage }) {
       <div className="max-w-7xl mx-auto px-6">
         <div className="grid md:grid-cols-4 gap-12 mb-12">
           <div>
-            <Logo light />
-            <p style={{ fontSize: 13, lineHeight: 1.6, marginTop: 16, color: 'rgba(250,246,238,0.55)' }}>
+            <Logo light height={80} />
+            <p style={{ fontSize: 13, lineHeight: 1.6, marginTop: 20, color: 'rgba(250,246,238,0.55)' }}>
               Independent financial planning for Alberta families and pre-retirees.
             </p>
           </div>

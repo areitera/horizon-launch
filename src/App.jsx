@@ -143,10 +143,46 @@ function GlobalStyles() {
       input, textarea, select { font-family: ${F.body}; }
       a { color: inherit; text-decoration: none; }
 
-      .hl-display { font-family: ${F.display}; letter-spacing: -0.02em; }
+      .hl-display { font-family: ${F.display}; letter-spacing: -0.015em; }
       .hl-eyebrow { font-family: ${F.body}; font-size: 11px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; }
-      .hl-line { position: relative; padding-top: 28px; }
-      .hl-line::before { content: ''; position: absolute; top: 0; left: 0; width: 48px; height: 1px; background: ${C.amber}; }
+      .hl-line { position: relative; padding-top: 32px; }
+      .hl-line::before {
+        content: ''; position: absolute; top: 0; left: 0; width: 56px; height: 2px;
+        background: linear-gradient(90deg, ${C.amber}, ${C.coral} 60%, transparent);
+        border-radius: 2px;
+      }
+
+      /* Soft card + divider primitives */
+      .hl-card {
+        background: ${C.white};
+        border-radius: 22px;
+        box-shadow: 0 1px 2px rgba(10,31,68,0.04), 0 12px 32px rgba(10,31,68,0.06);
+        border: 1px solid rgba(10,31,68,0.04);
+      }
+      .hl-card-warm {
+        background: linear-gradient(180deg, ${C.white} 0%, ${C.cream} 100%);
+        border-radius: 22px;
+        box-shadow: 0 1px 2px rgba(10,31,68,0.04), 0 18px 40px rgba(74,37,69,0.08);
+        border: 1px solid rgba(10,31,68,0.04);
+      }
+      .hl-divider-soft {
+        height: 1px; border: 0; margin: 14px 0;
+        background: linear-gradient(90deg, transparent, rgba(10,31,68,0.18) 50%, transparent);
+      }
+      .hl-input {
+        width: 100%; padding: 14px 16px;
+        border: 1px solid rgba(10,31,68,0.10);
+        border-radius: 14px;
+        background: ${C.white};
+        font-size: 14px; color: ${C.charcoal};
+        font-family: ${F.body};
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+      .hl-input:focus {
+        outline: none;
+        border-color: ${C.amber};
+        box-shadow: 0 0 0 4px ${C.amber}22;
+      }
 
       @keyframes hlFadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
       .hl-fade-up { animation: hlFadeUp 0.7s ease-out backwards; }
@@ -155,25 +191,24 @@ function GlobalStyles() {
       .hl-lift { transition: transform 0.25s ease, box-shadow 0.25s ease; }
       .hl-lift:hover { transform: translateY(-3px); }
 
-      /* Cosmic */
+      /* Cosmic — subdued motion so it ambient-glows rather than distracts */
       @keyframes hlTwinkle {
-        0%, 100% { opacity: 0.2; transform: scale(0.85); }
-        50%      { opacity: 1;   transform: scale(1.1); }
+        0%, 100% { opacity: 0.45; transform: scale(0.96); }
+        50%      { opacity: 0.85; transform: scale(1.04); }
       }
       @keyframes hlDrift {
         from { transform: translate3d(0, 0, 0); }
-        to   { transform: translate3d(-40px, -25px, 0); }
+        to   { transform: translate3d(-22px, -14px, 0); }
       }
       @keyframes hlShoot {
-        0%   { transform: translate3d(0, 0, 0) rotate(-22deg); opacity: 0; }
-        5%   { opacity: 1; }
-        25%  { opacity: 0.9; }
-        40%  { transform: translate3d(-380px, 180px, 0) rotate(-22deg); opacity: 0; }
-        100% { transform: translate3d(-380px, 180px, 0) rotate(-22deg); opacity: 0; }
+        0%, 92%  { transform: translate3d(0, 0, 0) rotate(-22deg); opacity: 0; }
+        94%      { opacity: 0.7; }
+        99%      { transform: translate3d(-340px, 160px, 0) rotate(-22deg); opacity: 0; }
+        100%     { transform: translate3d(-340px, 160px, 0) rotate(-22deg); opacity: 0; }
       }
-      .hl-twinkle { animation: hlTwinkle 4s ease-in-out infinite; transform-origin: center; }
-      .hl-drift   { animation: hlDrift 80s linear infinite alternate; }
-      .hl-shoot   { animation: hlShoot 9s ease-out infinite; }
+      .hl-twinkle { animation: hlTwinkle 9s ease-in-out infinite; transform-origin: center; }
+      .hl-drift   { animation: hlDrift 180s linear infinite alternate; }
+      .hl-shoot   { animation: hlShoot 28s ease-out infinite; }
 
       ::-webkit-scrollbar { width: 10px; height: 10px; }
       ::-webkit-scrollbar-track { background: ${C.cream}; }
@@ -192,7 +227,7 @@ function CosmicBackdrop({ variant = 'header', children }) {
     const x = Math.sin(n * 12.9898) * 43758.5453;
     return x - Math.floor(x);
   };
-  const counts = { hero: { far: 90, mid: 55, near: 28 }, header: { far: 55, mid: 32, near: 15 }, subtle: { far: 35, mid: 18, near: 8 } }[variant];
+  const counts = { hero: { far: 80, mid: 40, near: 16 }, header: { far: 50, mid: 24, near: 10 }, subtle: { far: 30, mid: 14, near: 5 } }[variant];
   const ringRadius = { hero: 95, header: 80, subtle: 70 }[variant];
 
   return (
@@ -360,22 +395,19 @@ function CosmicIcon({ name, color = C.amber, size = 44 }) {
 }
 
 // ============================================================
-// LOGO
+// LOGO — uses the brand mark (/logo.png)
 // ============================================================
-function Logo({ light = false }) {
-  const color = light ? C.cream : C.navy;
+function Logo({ light = false, height = 44 }) {
+  // On dark backgrounds the logo's navy ring disappears into the background;
+  // a soft amber drop-shadow makes it pop without needing a separate light variant.
+  const filter = light ? `drop-shadow(0 0 8px ${C.amber}66) brightness(1.05)` : 'none';
   return (
-    <div className="flex items-center gap-2">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-        <path d="M12 2 L19 12 L12 22 L5 12 Z" fill={C.amber} stroke={C.amber} strokeWidth="0.5"/>
-        <circle cx="12" cy="12" r="2.5" fill={C.navy}/>
-      </svg>
-      <div style={{ lineHeight: 1.1 }}>
-        <div className="hl-display" style={{ color, fontSize: 18, fontWeight: 700 }}>Horizon Launch</div>
-        <div style={{ color: light ? 'rgba(250,246,238,0.6)' : 'rgba(10,31,68,0.55)', fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', fontWeight: 500 }}>
-          Financial Solutions
-        </div>
-      </div>
+    <div style={{ display: 'flex', alignItems: 'center' }}>
+      <img
+        src="/logo.png"
+        alt="Horizon Launch Financial Solutions"
+        style={{ height, width: 'auto', display: 'block', filter }}
+      />
     </div>
   );
 }
@@ -493,8 +525,8 @@ function HomePage({ setPage }) {
               { num: '02', icon: 'ringed', title: 'Retirement Income', body: 'A plan for converting RRSPs and savings into reliable income — without outliving the money or leaving a tax mess for your kids.', accent: C.coral },
               { num: '03', icon: 'constellation', title: 'Generational Wealth', body: 'Estate-aware strategies for middle-income families who want their money to land softly with the next generation, not the CRA.', accent: C.plum },
             ].map((p) => (
-              <div key={p.num} className="hl-lift" style={{ background: C.white, padding: '40px 32px', borderRadius: 4, border: `1px solid ${C.border}`, position: 'relative', overflow: 'hidden' }}>
-                <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: 3, background: p.accent }}/>
+              <div key={p.num} className="hl-lift hl-card" style={{ padding: '40px 32px', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: 3, background: `linear-gradient(90deg, ${p.accent}, ${p.accent}55 80%, transparent)` }}/>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                   <CosmicIcon name={p.icon} color={p.accent} size={56} />
                   <div className="hl-display" style={{ fontSize: 48, color: p.accent, fontWeight: 800, lineHeight: 1, opacity: 0.25 }}>{p.num}</div>
@@ -652,8 +684,8 @@ function ServicesPage({ setPage }) {
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid lg:grid-cols-3 gap-6">
             {plans.map((p) => (
-              <div key={p.name} className="hl-lift" style={{ background: C.white, padding: '40px 32px', borderRadius: 4, border: `1px solid ${C.border}`, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                <div style={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: p.accent }}/>
+              <div key={p.name} className="hl-lift hl-card" style={{ padding: '40px 32px', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: `linear-gradient(180deg, ${p.accent}, ${p.accent}55 80%, transparent)` }}/>
                 <div style={{ marginBottom: 12 }}><CosmicIcon name={p.icon} color={p.accent} size={56} /></div>
                 <div className="hl-eyebrow" style={{ color: p.accent, marginBottom: 8 }}>{p.tagline}</div>
                 <h3 className="hl-display" style={{ fontSize: 32, fontWeight: 700, color: C.navy, marginBottom: 12 }}>{p.name}</h3>
@@ -731,7 +763,7 @@ function EventsPage() {
           {error && <div style={{ padding: 16, background: '#fee', color: '#900', marginTop: 24, borderRadius: 4 }}>{error}</div>}
 
           {!loading && upcoming.length === 0 && !error && (
-            <div style={{ padding: 60, textAlign: 'center', background: C.white, marginTop: 32, border: `1px solid ${C.border}` }}>
+            <div className="hl-card" style={{ padding: 60, textAlign: 'center', marginTop: 32 }}>
               <Calendar size={32} color={C.charcoalSoft} style={{ marginBottom: 16 }}/>
               <p style={{ color: C.charcoalSoft }}>Nothing scheduled right now. Check back soon — or follow us on social for the next announcement.</p>
             </div>
@@ -763,8 +795,8 @@ function EventCard({ event, isPast }) {
     : { label: 'In-Person', icon: <MapPin size={12}/>, bg: C.coral, color: C.cream };
 
   return (
-    <div className="hl-lift" style={{ background: C.white, border: `1px solid ${C.border}`, marginBottom: 16, padding: 0, display: 'grid', gridTemplateColumns: '120px 1fr auto', alignItems: 'stretch', opacity: isPast ? 0.65 : 1 }}>
-      <div style={{ background: isPast ? C.charcoalSoft : C.navy, color: C.cream, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px 12px' }}>
+    <div className="hl-lift hl-card" style={{ marginBottom: 16, padding: 0, display: 'grid', gridTemplateColumns: '120px 1fr auto', alignItems: 'stretch', opacity: isPast ? 0.65 : 1, overflow: 'hidden' }}>
+      <div style={{ background: isPast ? C.charcoalSoft : `linear-gradient(165deg, ${C.navy} 0%, ${C.plum} 100%)`, color: C.cream, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px 12px' }}>
         <div className="hl-eyebrow" style={{ color: C.amber, fontSize: 11 }}>{monthAbbrev(event.date)}</div>
         <div className="hl-display" style={{ fontSize: 44, fontWeight: 800, lineHeight: 1, marginTop: 4 }}>{dayNum(event.date)}</div>
         <div style={{ fontSize: 11, marginTop: 6, opacity: 0.7 }}>{new Date(event.date+'T00:00:00').getFullYear()}</div>
@@ -837,8 +869,8 @@ function ContactPage() {
           <div>
             <h2 className="hl-display" style={{ fontSize: 32, fontWeight: 700, color: C.navy, marginBottom: 24 }}>Send a message</h2>
             {state === 'submitted' ? (
-              <div style={{ background: C.amber + '22', border: `1px solid ${C.amber}`, padding: 24, borderRadius: 4 }}>
-                <Check size={24} color={C.navy}/>
+              <div className="hl-card-warm" style={{ padding: 28 }}>
+                <Check size={28} color={C.amber}/>
                 <h3 className="hl-display" style={{ fontSize: 22, fontWeight: 700, color: C.navy, marginTop: 12 }}>Message received.</h3>
                 <p style={{ color: C.charcoalSoft, marginTop: 8 }}>One of us will be in touch within one business day.</p>
               </div>
@@ -876,7 +908,7 @@ function ContactPage() {
 
           <div>
             <h2 className="hl-display" style={{ fontSize: 32, fontWeight: 700, color: C.navy, marginBottom: 24 }}>Or book directly</h2>
-            <div style={{ background: C.white, padding: 32, border: `1px solid ${C.border}`, borderRadius: 4 }}>
+            <div className="hl-card-warm" style={{ padding: 32 }}>
               <Calendar size={28} color={C.amber} style={{ marginBottom: 16 }}/>
               <h3 className="hl-display" style={{ fontSize: 22, fontWeight: 700, color: C.navy, marginBottom: 12 }}>30-minute intro call</h3>
               <p style={{ color: C.charcoalSoft, fontSize: 15, lineHeight: 1.6, marginBottom: 24 }}>
@@ -913,10 +945,11 @@ function ContactPage() {
 }
 
 const inputStyle = {
-  width: '100%', padding: '12px 14px',
-  border: `1px solid ${C.border}`, borderRadius: 4,
+  width: '100%', padding: '14px 16px',
+  border: `1px solid rgba(10,31,68,0.10)`, borderRadius: 14,
   background: C.white, fontSize: 14, color: C.charcoal,
   fontFamily: F.body,
+  transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
 };
 
 function Field({ label, type='text', value, onChange, multiline, required }) {
@@ -958,7 +991,7 @@ function LoginCard({ onSignedIn }) {
   return (
     <section style={{ background: C.navy, minHeight: '90vh', display: 'flex', alignItems: 'center', padding: '40px 0' }}>
       <div className="max-w-md mx-auto px-6 w-full">
-        <div style={{ background: C.cream, padding: 40, borderRadius: 4 }}>
+        <div className="hl-card-warm" style={{ padding: 40 }}>
           <Lock size={28} color={C.amber}/>
           <h1 className="hl-display" style={{ fontSize: 28, fontWeight: 700, color: C.navy, marginTop: 16, marginBottom: 8 }}>
             Back office
@@ -1096,7 +1129,7 @@ function AdminPage() {
               All events ({events.length})
             </h2>
             {events.slice().sort((a,b) => b.date.localeCompare(a.date)).map(e => (
-              <div key={e.id} style={{ background: C.white, border: `1px solid ${C.border}`, padding: 20, marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+              <div key={e.id} className="hl-card" style={{ padding: 20, marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: 250 }}>
                   <div style={{ display: 'flex', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
                     <span style={{ background: e.format === 'online' ? C.amber : C.coral, color: e.format === 'online' ? C.navy : C.cream, padding: '2px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600 }}>{e.format === 'online' ? 'Online' : 'In-Person'}</span>
@@ -1121,7 +1154,7 @@ function AdminPage() {
 }
 
 const ghostBtn = { background: 'transparent', color: C.navy, padding: '8px 14px', borderRadius: 999, border: `1px solid ${C.border}`, fontSize: 13, fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: 6 };
-const iconBtn = { background: 'transparent', color: C.navy, padding: '8px 12px', borderRadius: 4, border: `1px solid ${C.border}`, fontSize: 13, fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: 6 };
+const iconBtn = { background: 'transparent', color: C.navy, padding: '8px 14px', borderRadius: 999, border: `1px solid rgba(10,31,68,0.10)`, fontSize: 13, fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: 6 };
 
 function EventForm({ event, onSave, onCancel }) {
   const [form, setForm] = useState(event || { title: '', date: '', time: '', format: 'online', location: '', description: '', registration_url: '' });
@@ -1134,7 +1167,7 @@ function EventForm({ event, onSave, onCancel }) {
   };
 
   return (
-    <div style={{ background: C.white, border: `2px solid ${C.amber}`, padding: 28, borderRadius: 4, marginBottom: 24 }}>
+    <div style={{ background: C.white, border: `2px solid ${C.amber}66`, padding: 28, borderRadius: 22, marginBottom: 24, boxShadow: `0 12px 32px ${C.amber}22` }}>
       <h2 className="hl-display" style={{ fontSize: 22, fontWeight: 700, color: C.navy, marginBottom: 20 }}>
         {event ? 'Edit event' : 'New event'}
       </h2>

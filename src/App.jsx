@@ -480,7 +480,7 @@ function CosmicIcon({ name, color = C.amber, size = 44 }) {
 // ============================================================
 // LOGO — uses the brand mark (/logo.png)
 // ============================================================
-function Logo({ light = false, height = 64 }) {
+function Logo({ light = false, height = 96 }) {
   // On dark backgrounds the logo's navy ring disappears into the background;
   // a soft amber drop-shadow keeps it visible without needing a separate
   // inverted version.
@@ -1314,7 +1314,7 @@ function Footer({ setPage }) {
       <div className="max-w-7xl mx-auto px-6">
         <div className="grid md:grid-cols-4 gap-12 mb-12">
           <div>
-            <Logo light height={80} />
+            <Logo light height={160} />
             <p style={{ fontSize: 13, lineHeight: 1.6, marginTop: 20, color: 'rgba(250,246,238,0.55)' }}>
               Independent financial planning for Alberta families and pre-retirees.
             </p>

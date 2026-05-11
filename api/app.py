@@ -373,15 +373,18 @@ async def submit_contact(req: Request, submission: ContactSubmission):
 	delivery = "skipped"
 
 	if WEB3FORMS_KEY:
+		intended_to = routed_to.split("@")[0]  # short version for subject
 		payload = {
 			"access_key": WEB3FORMS_KEY,
-			"subject": f"[Horizon Launch] {submission.topic}: {submission.name}",
+			"subject": f"[Horizon Launch · {submission.topic} → {intended_to}] {submission.name}",
 			"from_name": submission.name,
 			"email": submission.email,
 			"replyto": submission.email,
-			"to": routed_to,
-			"message": submission.message,
-			"topic": submission.topic,
+			"message": (
+				f"Topic: {submission.topic}\n"
+				f"Should go to: {routed_to}\n\n"
+				f"{submission.message}"
+			),
 			"_referrer": req.headers.get("referer", ""),
 		}
 		try:

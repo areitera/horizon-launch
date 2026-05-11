@@ -60,13 +60,38 @@ const api = {
     return r.json();
   },
   async submitContact(form) {
-    const r = await fetch('/api/contact', {
+    // Web3Forms requires browser-origin submission on the free tier — we POST direct.
+    const key = import.meta.env.VITE_WEB3FORMS_KEY;
+    if (!key) throw new Error('Contact form not configured');
+
+    const TOPIC_RECIPIENT_HINT = {
+      general: 'Denise',
+      insurance: 'Catherine',
+      retirement: 'Denise',
+      estate: 'Tracy',
+      event: 'Denise',
+    };
+    const intended = TOPIC_RECIPIENT_HINT[form.topic] || 'Denise';
+
+    const payload = {
+      access_key: key,
+      subject: `[Horizon Launch · ${form.topic} → ${intended}] ${form.name}`,
+      from_name: form.name,
+      email: form.email,
+      replyto: form.email,
+      message: `Topic: ${form.topic}\nIntended follow-up: ${intended}\n\n${form.message}`,
+      botcheck: form._honey || '',
+    };
+    const r = await fetch('https://api.web3forms.com/submit', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(form),
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify(payload),
     });
-    if (!r.ok) throw new Error(`contact: ${r.status}`);
-    return r.json();
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok || !data.success) {
+      throw new Error(data.message || `HTTP ${r.status}`);
+    }
+    return data;
   },
   async whoami() {
     try {

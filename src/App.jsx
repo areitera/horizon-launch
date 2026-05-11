@@ -566,29 +566,29 @@ function HomePage({ setPage }) {
   return (
     <>
       <section style={{ background: C.navy, position: 'relative', overflow: 'hidden', minHeight: '92vh', display: 'flex', alignItems: 'center' }}>
-        {/* Real Earth-from-space photo as the cosmic backdrop */}
+        {/* NASA Endeavour photo: atmospheric layers diagonal bottom-left → upper-right, shuttle silhouette center */}
         <div style={{
           position: 'absolute', inset: 0,
           backgroundImage: 'url(/hero-earth.jpg)',
           backgroundSize: 'cover',
-          backgroundPosition: 'center bottom',
-          opacity: 0.85,
+          backgroundPosition: 'center center',
+          opacity: 0.92,
         }} />
-        {/* Navy gradient overlay — darker at top where copy sits, lighter at bottom where Earth horizon glows */}
+        {/* Heavy navy on the left (where copy sits), fading to transparent on the right so the
+            atmospheric red/amber/blue layers show through cleanly with the shuttle silhouette */}
         <div style={{
           position: 'absolute', inset: 0,
-          background: `linear-gradient(180deg,
-            ${C.navyDeep}ee 0%,
-            ${C.navy}cc 35%,
-            ${C.navy}88 65%,
-            ${C.navyDeep}55 100%)`,
+          background: `linear-gradient(98deg,
+            ${C.navyDeep}f2 0%,
+            ${C.navyDeep}cc 28%,
+            ${C.navy}77 55%,
+            ${C.navy}22 80%,
+            transparent 100%)`,
         }} />
-        {/* Warm horizon glow blended in at the bottom-right to pick up the brand sunrise feel */}
-        <div className="hl-glow" style={{
-          position: 'absolute', bottom: '-30%', left: '50%', transform: 'translateX(-50%)',
-          width: '140%', height: '60%',
-          background: `radial-gradient(ellipse at 50% 100%, ${C.amber}55 0%, ${C.coral}22 35%, transparent 70%)`,
-          mixBlendMode: 'screen',
+        {/* Subtle bottom darkening so the horizon area doesn't feel "cut off" at the section edge */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: `linear-gradient(180deg, transparent 65%, ${C.navyDeep}66 100%)`,
         }} />
 
         <div className="relative max-w-7xl mx-auto px-6 py-24 w-full">

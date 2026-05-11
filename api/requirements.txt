@@ -1,4 +1,4 @@
-fastapi==0.115.6
-uvicorn[standard]==0.34.0
-pydantic[email]==2.10.4
-httpx==0.28.1
+fastapi>=0.118
+uvicorn[standard]>=0.34
+pydantic[email]>=2.11
+httpx>=0.28

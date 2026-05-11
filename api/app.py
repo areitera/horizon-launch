@@ -206,7 +206,7 @@ def list_events():
 	return [dict(r) for r in rows]
 
 
-@app.post("/api/events")
+@app.post("/api/admin/events")
 def create_event(
 	event: Event,
 	cf_email: Optional[str] = Header(default=None, alias="Cf-Access-Authenticated-User-Email"),
@@ -222,7 +222,7 @@ def create_event(
 	return {**event.model_dump(), "id": event_id}
 
 
-@app.put("/api/events/{event_id}")
+@app.put("/api/admin/events/{event_id}")
 def update_event(
 	event_id: str,
 	event: Event,
@@ -240,7 +240,7 @@ def update_event(
 	return {**event.model_dump(), "id": event_id}
 
 
-@app.delete("/api/events/{event_id}")
+@app.delete("/api/admin/events/{event_id}")
 def delete_event(
 	event_id: str,
 	cf_email: Optional[str] = Header(default=None, alias="Cf-Access-Authenticated-User-Email"),

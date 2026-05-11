@@ -37,7 +37,7 @@ const api = {
     return r.json();
   },
   async createEvent(event) {
-    const r = await fetch('/api/events', {
+    const r = await fetch('/api/admin/events', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(event),
@@ -46,7 +46,7 @@ const api = {
     return r.json();
   },
   async updateEvent(id, event) {
-    const r = await fetch(`/api/events/${id}`, {
+    const r = await fetch(`/api/admin/events/${id}`, {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(event),
@@ -55,7 +55,7 @@ const api = {
     return r.json();
   },
   async deleteEvent(id) {
-    const r = await fetch(`/api/events/${id}`, { method: 'DELETE' });
+    const r = await fetch(`/api/admin/events/${id}`, { method: 'DELETE' });
     if (!r.ok) throw new Error(`delete: ${r.status}`);
     return r.json();
   },

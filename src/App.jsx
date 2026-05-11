@@ -903,25 +903,30 @@ function Footer({ setPage }) {
 }
 
 // ============================================================
-// MAIN — hash-based routing so /admin can be Cloudflare-Access-gated as a path
+// MAIN — path-based routing so /admin can be Cloudflare-Access-gated
 // ============================================================
-function pageFromHash() {
-  const h = (window.location.hash || '').replace('#', '').replace('/', '');
-  return ['home','about','services','events','contact','admin'].includes(h) ? h : 'home';
+const PAGES = ['home','about','services','events','contact','admin'];
+
+function pageFromPath() {
+  const p = window.location.pathname.replace(/^\/|\/$/g, '');
+  return PAGES.includes(p) ? p : 'home';
 }
 
 export default function App() {
-  const [page, setPageState] = useState(pageFromHash());
+  const [page, setPageState] = useState(pageFromPath());
 
   const setPage = (p) => {
-    window.location.hash = p === 'home' ? '' : p;
+    const path = p === 'home' ? '/' : `/${p}`;
+    if (window.location.pathname !== path) {
+      window.history.pushState({}, '', path);
+    }
     setPageState(p);
   };
 
   useEffect(() => {
-    const handler = () => setPageState(pageFromHash());
-    window.addEventListener('hashchange', handler);
-    return () => window.removeEventListener('hashchange', handler);
+    const handler = () => setPageState(pageFromPath());
+    window.addEventListener('popstate', handler);
+    return () => window.removeEventListener('popstate', handler);
   }, []);
 
   return (

@@ -1,0 +1,16 @@
+# Frontend
+node_modules/
+dist/
+*.local
+
+# Backend
+api/.venv/
+api/data/
+__pycache__/
+*.pyc
+
+# Misc
+.DS_Store
+.env
+.env.local
+*.log

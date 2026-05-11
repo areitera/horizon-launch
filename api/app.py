@@ -2,28 +2,30 @@
 Horizon Launch backend — FastAPI service.
 
 Routes:
-  GET    /api/events            — public list of events (sorted by date)
-  POST   /api/events            — admin: create event
-  PUT    /api/events/{id}       — admin: update event
-  DELETE /api/events/{id}       — admin: delete event
-  POST   /api/contact           — public: contact form, sent via Web3Forms
-  GET    /api/whoami            — returns CF Access email (or "dev")
-  GET    /api/health            — liveness probe
+  GET    /api/events                — public list of events (sorted by date)
+  POST   /api/contact               — public contact form, sent via Web3Forms
+  POST   /api/login                 — public: email + password → session cookie
+  POST   /api/logout                — clear session
+  GET    /api/whoami                — current logged-in user (or null)
+  GET    /api/health                — liveness probe
+  POST   /api/admin/events          — admin: create event
+  PUT    /api/admin/events/{id}     — admin: update event
+  DELETE /api/admin/events/{id}     — admin: delete event
 
-Admin auth: every admin route checks for the `Cf-Access-Authenticated-User-Email`
-header that Cloudflare Access injects. In local development (HL_DEV=1), this
-check is skipped so we can iterate without standing up Access.
+Auth: bcrypt-hashed passwords in SQLite. Login issues a random session token
+stored in a sessions table and set as an HTTP-only Secure SameSite=Lax cookie.
+Admin routes require a valid non-expired session.
 
 Database: SQLite at $HL_DB_PATH (default ./data/site.db). Auto-creates schema
 on first run.
 
-Outbound: contact form posts to Web3Forms using HL_WEB3FORMS_KEY (get one free
-at web3forms.com).
+Outbound: contact form posts to Web3Forms using HL_WEB3FORMS_KEY.
 """
 
 from __future__ import annotations
 
 import os
+import secrets
 import sqlite3
 import time
 import uuid
@@ -32,15 +34,19 @@ from pathlib import Path
 from typing import Optional
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request, Header
+from fastapi import Cookie, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr, Field
 
 DB_PATH = Path(os.environ.get("HL_DB_PATH", "data/site.db")).resolve()
 WEB3FORMS_KEY = os.environ.get("HL_WEB3FORMS_KEY", "")
 DEV_MODE = os.environ.get("HL_DEV", "") == "1"
+SESSION_DAYS = int(os.environ.get("HL_SESSION_DAYS", "7"))
+COOKIE_NAME = "hl_session"
 
-# Topic → email routing. Override per-key via HL_TOPIC_<UPPER>.
+pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 TOPIC_ROUTING_DEFAULT = {
 	"general": "denise.edinger@sbdfinancial.ca",
 	"insurance": "catherine.sakowsky@sbdfinancial.ca",
@@ -93,8 +99,24 @@ def db_init():
 				delivery    TEXT,
 				created_at  INTEGER NOT NULL
 			);
+
+			CREATE TABLE IF NOT EXISTS users (
+				email         TEXT PRIMARY KEY,
+				password_hash TEXT NOT NULL,
+				display_name  TEXT,
+				created_at    INTEGER NOT NULL,
+				updated_at    INTEGER NOT NULL
+			);
+
+			CREATE TABLE IF NOT EXISTS sessions (
+				token       TEXT PRIMARY KEY,
+				email       TEXT NOT NULL,
+				expires_at  INTEGER NOT NULL,
+				created_at  INTEGER NOT NULL,
+				FOREIGN KEY (email) REFERENCES users(email) ON DELETE CASCADE
+			);
+			CREATE INDEX IF NOT EXISTS idx_sessions_email ON sessions(email);
 		""")
-		# Seed events if empty
 		count = conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]
 		if count == 0:
 			now = int(time.time())
@@ -136,14 +158,65 @@ def db():
 		conn.close()
 
 
-# ----- Auth -----
+# ----- Session helpers -----
 
-def require_admin(cf_email: Optional[str]) -> str:
-	if DEV_MODE:
-		return cf_email or "dev@local"
-	if not cf_email:
-		raise HTTPException(status_code=403, detail="No Cloudflare Access identity")
-	return cf_email
+def session_lookup(token: Optional[str]) -> Optional[str]:
+	if not token:
+		return None
+	now = int(time.time())
+	with db() as conn:
+		row = conn.execute(
+			"SELECT email, expires_at FROM sessions WHERE token = ?",
+			(token,),
+		).fetchone()
+		if not row:
+			return None
+		if row["expires_at"] < now:
+			conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
+			return None
+	return row["email"]
+
+
+def session_create(email: str) -> tuple[str, int]:
+	token = secrets.token_urlsafe(32)
+	now = int(time.time())
+	expires = now + SESSION_DAYS * 86400
+	with db() as conn:
+		conn.execute(
+			"INSERT INTO sessions (token, email, expires_at, created_at) VALUES (?,?,?,?)",
+			(token, email, expires, now),
+		)
+	return token, expires
+
+
+def session_delete(token: Optional[str]):
+	if not token:
+		return
+	with db() as conn:
+		conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
+
+
+def set_session_cookie(response: Response, token: str, expires: int):
+	response.set_cookie(
+		key=COOKIE_NAME,
+		value=token,
+		httponly=True,
+		secure=not DEV_MODE,  # require HTTPS in production
+		samesite="lax",
+		expires=expires,
+		path="/",
+	)
+
+
+def clear_session_cookie(response: Response):
+	response.delete_cookie(key=COOKIE_NAME, path="/")
+
+
+def require_admin(session_token: Optional[str]) -> str:
+	email = session_lookup(session_token)
+	if not email:
+		raise HTTPException(status_code=401, detail="Not authenticated")
+	return email
 
 
 # ----- Schemas -----
@@ -151,7 +224,7 @@ def require_admin(cf_email: Optional[str]) -> str:
 class Event(BaseModel):
 	id: Optional[str] = None
 	title: str = Field(min_length=1, max_length=200)
-	date: str = Field(min_length=10, max_length=10)  # YYYY-MM-DD
+	date: str = Field(min_length=10, max_length=10)
 	time: str = ""
 	format: str = Field(default="online", pattern="^(online|in-person)$")
 	location: str = ""
@@ -164,6 +237,11 @@ class ContactSubmission(BaseModel):
 	email: EmailStr
 	topic: str = Field(default="general", max_length=40)
 	message: str = Field(default="", max_length=5000)
+
+
+class LoginRequest(BaseModel):
+	email: EmailStr
+	password: str = Field(min_length=1, max_length=200)
 
 
 # ----- App -----
@@ -191,12 +269,38 @@ def health():
 
 
 @app.get("/api/whoami")
-def whoami(cf_email: Optional[str] = Header(default=None, alias="Cf-Access-Authenticated-User-Email")):
-	if DEV_MODE:
-		return {"email": cf_email or "dev@local", "mode": "dev"}
-	if not cf_email:
-		raise HTTPException(status_code=403, detail="Not authenticated")
-	return {"email": cf_email, "mode": "production"}
+def whoami(hl_session: Optional[str] = Cookie(default=None)):
+	email = session_lookup(hl_session)
+	if not email:
+		return {"email": None}
+	return {"email": email}
+
+
+@app.post("/api/login")
+def login(req: LoginRequest, response: Response):
+	with db() as conn:
+		row = conn.execute(
+			"SELECT email, password_hash FROM users WHERE email = ?",
+			(req.email.lower(),),
+		).fetchone()
+	# Constant-ish-time even when user doesn't exist
+	hashed = row["password_hash"] if row else "$2b$12$" + "x" * 53
+	ok = pwd_ctx.verify(req.password, hashed) if row else False
+	if not ok:
+		# Hash a dummy password to keep timing similar across hits even when user doesn't exist
+		pwd_ctx.hash("dummy-to-equalize-timing")
+		raise HTTPException(status_code=401, detail="Invalid email or password")
+
+	token, expires = session_create(row["email"])
+	set_session_cookie(response, token, expires)
+	return {"email": row["email"], "expires_at": expires}
+
+
+@app.post("/api/logout")
+def logout(response: Response, hl_session: Optional[str] = Cookie(default=None)):
+	session_delete(hl_session)
+	clear_session_cookie(response)
+	return {"ok": True}
 
 
 @app.get("/api/events")
@@ -207,11 +311,8 @@ def list_events():
 
 
 @app.post("/api/admin/events")
-def create_event(
-	event: Event,
-	cf_email: Optional[str] = Header(default=None, alias="Cf-Access-Authenticated-User-Email"),
-):
-	require_admin(cf_email)
+def create_event(event: Event, hl_session: Optional[str] = Cookie(default=None)):
+	require_admin(hl_session)
 	now = int(time.time())
 	event_id = event.id or f"evt-{uuid.uuid4().hex[:10]}"
 	with db() as conn:
@@ -223,12 +324,8 @@ def create_event(
 
 
 @app.put("/api/admin/events/{event_id}")
-def update_event(
-	event_id: str,
-	event: Event,
-	cf_email: Optional[str] = Header(default=None, alias="Cf-Access-Authenticated-User-Email"),
-):
-	require_admin(cf_email)
+def update_event(event_id: str, event: Event, hl_session: Optional[str] = Cookie(default=None)):
+	require_admin(hl_session)
 	now = int(time.time())
 	with db() as conn:
 		cur = conn.execute(
@@ -241,11 +338,8 @@ def update_event(
 
 
 @app.delete("/api/admin/events/{event_id}")
-def delete_event(
-	event_id: str,
-	cf_email: Optional[str] = Header(default=None, alias="Cf-Access-Authenticated-User-Email"),
-):
-	require_admin(cf_email)
+def delete_event(event_id: str, hl_session: Optional[str] = Cookie(default=None)):
+	require_admin(hl_session)
 	with db() as conn:
 		cur = conn.execute("DELETE FROM events WHERE id=?", (event_id,))
 		if cur.rowcount == 0:
@@ -255,7 +349,6 @@ def delete_event(
 
 @app.post("/api/contact")
 async def submit_contact(req: Request, submission: ContactSubmission):
-	# Persist regardless of outbound success — never lose a lead
 	now = int(time.time())
 	routed_to = topic_recipient(submission.topic)
 	delivery = "skipped"

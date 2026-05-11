@@ -71,9 +71,24 @@ const api = {
   async whoami() {
     try {
       const r = await fetch('/api/whoami');
-      if (!r.ok) return null;
+      if (!r.ok) return { email: null };
       return r.json();
-    } catch { return null; }
+    } catch { return { email: null }; }
+  },
+  async login(email, password) {
+    const r = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!r.ok) {
+      const detail = (await r.json().catch(() => ({}))).detail || `HTTP ${r.status}`;
+      throw new Error(detail);
+    }
+    return r.json();
+  },
+  async logout() {
+    await fetch('/api/logout', { method: 'POST' });
   },
 };
 
@@ -697,19 +712,78 @@ function Field({ label, type='text', value, onChange, multiline, required }) {
 }
 
 // ============================================================
-// ADMIN — no password gate; Cloudflare Access auths upstream
+// LOGIN — used by AdminPage when no session present
+// ============================================================
+function LoginCard({ onSignedIn }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSubmitting(true);
+    try {
+      const u = await api.login(email.trim(), password);
+      onSignedIn(u);
+    } catch (err) {
+      setError(String(err.message || err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <section style={{ background: C.navy, minHeight: '90vh', display: 'flex', alignItems: 'center', padding: '40px 0' }}>
+      <div className="max-w-md mx-auto px-6 w-full">
+        <div style={{ background: C.cream, padding: 40, borderRadius: 4 }}>
+          <Lock size={28} color={C.amber}/>
+          <h1 className="hl-display" style={{ fontSize: 28, fontWeight: 700, color: C.navy, marginTop: 16, marginBottom: 8 }}>
+            Back office
+          </h1>
+          <p style={{ color: C.charcoalSoft, fontSize: 14, marginBottom: 24 }}>
+            Sign in to manage events.
+          </p>
+          <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <Field label="Email" type="email" value={email} onChange={setEmail} required />
+            <Field label="Password" type="password" value={password} onChange={setPassword} required />
+            {error && (
+              <div style={{ display: 'flex', gap: 8, color: C.coral, fontSize: 13 }}>
+                <AlertCircle size={16}/> {error}
+              </div>
+            )}
+            <button type="submit" disabled={submitting} style={{
+              background: C.navy, color: C.cream, border: 'none',
+              padding: '14px', borderRadius: 999, fontWeight: 600, fontSize: 15,
+              opacity: submitting ? 0.6 : 1,
+            }}>
+              {submitting ? 'Signing in…' : 'Sign in'}
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ============================================================
+// ADMIN — self-hosted session auth (login form below)
 // ============================================================
 function AdminPage() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(undefined); // undefined=loading, null=anon, {email}=logged-in
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
   const [statusMsg, setStatusMsg] = useState('');
 
   useEffect(() => {
-    api.whoami().then(setUser);
-    load();
+    api.whoami().then(u => setUser(u && u.email ? u : null));
   }, []);
+
+  useEffect(() => {
+    if (user && user.email) load();
+  }, [user]);
 
   const load = async () => {
     setLoading(true);
@@ -747,6 +821,19 @@ function AdminPage() {
     }
   };
 
+  const handleLogout = async () => {
+    await api.logout();
+    setUser(null);
+  };
+
+  if (user === undefined) {
+    return <section style={{ background: C.cream, minHeight: '90vh', padding: '40px 0', textAlign: 'center', color: C.charcoalSoft }}>Loading…</section>;
+  }
+
+  if (user === null) {
+    return <LoginCard onSignedIn={(u) => setUser(u)} />;
+  }
+
   return (
     <section style={{ background: C.cream, minHeight: '90vh', padding: '40px 0 80px' }}>
       <div className="max-w-5xl mx-auto px-6">
@@ -756,11 +843,11 @@ function AdminPage() {
             <h1 className="hl-display" style={{ fontSize: 36, fontWeight: 700, color: C.navy }}>Manage events</h1>
             <p style={{ color: C.charcoalSoft, marginTop: 8, fontSize: 14 }}>
               Changes go live on the public events page immediately.
-              {user && user.email && <> Signed in as <span style={{ color: C.navy, fontWeight: 600 }}>{user.email}</span>.</>}
+              {user.email && <> Signed in as <span style={{ color: C.navy, fontWeight: 600 }}>{user.email}</span>.</>}
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <a href="/cdn-cgi/access/logout" style={ghostBtn}><LogOut size={14}/> Sign out</a>
+            <button onClick={handleLogout} style={ghostBtn}><LogOut size={14}/> Sign out</button>
           </div>
         </div>
 

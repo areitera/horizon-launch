@@ -566,11 +566,30 @@ function HomePage({ setPage }) {
   return (
     <>
       <section style={{ background: C.navy, position: 'relative', overflow: 'hidden', minHeight: '92vh', display: 'flex', alignItems: 'center' }}>
-        <CosmicBackdrop variant="hero" />
-
-        {/* "Big banks" — distant institutional planets the Horizon rocket is leaving behind */}
-        <BigBankPlanet x={78} y={10} size={260} tone="cool" />
-        <BigBankPlanet x={-8} y={62} size={180} tone="warm" />
+        {/* Real Earth-from-space photo as the cosmic backdrop */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          backgroundImage: 'url(/hero-earth.jpg)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center bottom',
+          opacity: 0.85,
+        }} />
+        {/* Navy gradient overlay — darker at top where copy sits, lighter at bottom where Earth horizon glows */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: `linear-gradient(180deg,
+            ${C.navyDeep}ee 0%,
+            ${C.navy}cc 35%,
+            ${C.navy}88 65%,
+            ${C.navyDeep}55 100%)`,
+        }} />
+        {/* Warm horizon glow blended in at the bottom-right to pick up the brand sunrise feel */}
+        <div className="hl-glow" style={{
+          position: 'absolute', bottom: '-30%', left: '50%', transform: 'translateX(-50%)',
+          width: '140%', height: '60%',
+          background: `radial-gradient(ellipse at 50% 100%, ${C.amber}55 0%, ${C.coral}22 35%, transparent 70%)`,
+          mixBlendMode: 'screen',
+        }} />
 
         <div className="relative max-w-7xl mx-auto px-6 py-24 w-full">
           <div className="hl-fade-up" style={{ animationDelay: '0.05s' }}>

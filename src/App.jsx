@@ -155,10 +155,207 @@ function GlobalStyles() {
       .hl-lift { transition: transform 0.25s ease, box-shadow 0.25s ease; }
       .hl-lift:hover { transform: translateY(-3px); }
 
+      /* Cosmic */
+      @keyframes hlTwinkle {
+        0%, 100% { opacity: 0.2; transform: scale(0.85); }
+        50%      { opacity: 1;   transform: scale(1.1); }
+      }
+      @keyframes hlDrift {
+        from { transform: translate3d(0, 0, 0); }
+        to   { transform: translate3d(-40px, -25px, 0); }
+      }
+      @keyframes hlShoot {
+        0%   { transform: translate3d(0, 0, 0) rotate(-22deg); opacity: 0; }
+        5%   { opacity: 1; }
+        25%  { opacity: 0.9; }
+        40%  { transform: translate3d(-380px, 180px, 0) rotate(-22deg); opacity: 0; }
+        100% { transform: translate3d(-380px, 180px, 0) rotate(-22deg); opacity: 0; }
+      }
+      .hl-twinkle { animation: hlTwinkle 4s ease-in-out infinite; transform-origin: center; }
+      .hl-drift   { animation: hlDrift 80s linear infinite alternate; }
+      .hl-shoot   { animation: hlShoot 9s ease-out infinite; }
+
       ::-webkit-scrollbar { width: 10px; height: 10px; }
       ::-webkit-scrollbar-track { background: ${C.cream}; }
       ::-webkit-scrollbar-thumb { background: ${C.navy}; border-radius: 5px; }
     `}</style>
+  );
+}
+
+// ============================================================
+// COSMIC BACKDROP — reusable star-field + nebula treatment
+// variant: 'hero' (most dramatic) | 'header' (medium) | 'subtle' (faint)
+// ============================================================
+function CosmicBackdrop({ variant = 'header', children }) {
+  // Deterministic pseudo-random so stars don't reflow on re-render
+  const rand = (n) => {
+    const x = Math.sin(n * 12.9898) * 43758.5453;
+    return x - Math.floor(x);
+  };
+  const counts = { hero: { far: 90, mid: 55, near: 28 }, header: { far: 55, mid: 32, near: 15 }, subtle: { far: 35, mid: 18, near: 8 } }[variant];
+  const ringRadius = { hero: 95, header: 80, subtle: 70 }[variant];
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+      {/* Deep-space gradient base */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: `radial-gradient(ellipse at 70% -10%, ${C.plum}55 0%, transparent 50%),
+                     radial-gradient(ellipse at 10% 110%, ${C.amber}33 0%, transparent 45%),
+                     radial-gradient(ellipse at 50% 120%, ${C.coral}33 0%, transparent 55%)`,
+      }} />
+
+      {/* Nebula glow at horizon */}
+      {variant === 'hero' && (
+        <div className="hl-glow" style={{
+          position: 'absolute', bottom: '-25%', left: '50%', transform: 'translateX(-50%)',
+          width: '150%', height: '75%',
+          background: `radial-gradient(ellipse at 50% 100%, ${C.amber}66 0%, ${C.coral}22 30%, transparent 65%)`,
+        }} />
+      )}
+
+      {/* Drifting star layer (far, small, dim) */}
+      <svg className="hl-drift" style={{ position: 'absolute', inset: '-10%', width: '120%', height: '120%', opacity: 0.6 }} preserveAspectRatio="none">
+        {[...Array(counts.far)].map((_, i) => (
+          <circle key={'f'+i}
+            cx={`${rand(i + 1) * 100}%`}
+            cy={`${rand(i + 200) * 100}%`}
+            r={0.6}
+            fill={C.cream}
+          />
+        ))}
+      </svg>
+
+      {/* Mid star layer */}
+      <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} preserveAspectRatio="none">
+        {[...Array(counts.mid)].map((_, i) => (
+          <circle key={'m'+i}
+            cx={`${rand(i + 500) * 100}%`}
+            cy={`${rand(i + 700) * 100}%`}
+            r={rand(i + 900) > 0.75 ? 1.4 : 1}
+            fill={rand(i + 1100) > 0.85 ? C.amber : C.cream}
+            opacity={0.45 + rand(i + 1300) * 0.4}
+          />
+        ))}
+      </svg>
+
+      {/* Near stars — bigger, brighter, twinkle */}
+      <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} preserveAspectRatio="none">
+        {[...Array(counts.near)].map((_, i) => {
+          const cx = rand(i + 2000) * 100;
+          const cy = rand(i + 2500) * 100;
+          const tint = rand(i + 3000) > 0.7 ? C.amber : C.cream;
+          return (
+            <g key={'n'+i} className="hl-twinkle" style={{ animationDelay: `${(rand(i + 4000) * 4).toFixed(2)}s` }}>
+              <circle cx={`${cx}%`} cy={`${cy}%`} r={1.8} fill={tint} />
+              <circle cx={`${cx}%`} cy={`${cy}%`} r={3.5} fill={tint} opacity={0.18} />
+            </g>
+          );
+        })}
+      </svg>
+
+      {/* Orbital ring decoration (subtle) */}
+      {variant !== 'subtle' && (
+        <svg style={{ position: 'absolute', top: '15%', right: '-12%', width: 380, height: 380, opacity: 0.18 }} viewBox="0 0 100 100">
+          <ellipse cx="50" cy="50" rx={ringRadius / 2} ry={ringRadius / 4} fill="none" stroke={C.amber} strokeWidth="0.3" />
+          <ellipse cx="50" cy="50" rx={ringRadius / 2.4} ry={ringRadius / 3.5} fill="none" stroke={C.coral} strokeWidth="0.2" opacity="0.7" />
+        </svg>
+      )}
+
+      {/* Occasional shooting star (hero only) */}
+      {variant === 'hero' && (
+        <div className="hl-shoot" style={{
+          position: 'absolute', top: '18%', right: '5%',
+          width: 120, height: 1,
+          background: `linear-gradient(90deg, transparent, ${C.cream})`,
+          boxShadow: `0 0 6px ${C.cream}`,
+        }} />
+      )}
+
+      {children}
+    </div>
+  );
+}
+
+// ============================================================
+// COSMIC ICONS — small inline SVGs for pillars + plans
+// ============================================================
+function CosmicIcon({ name, color = C.amber, size = 44 }) {
+  const stroke = color;
+  const sw = 1.1; // delicate stroke
+  const paths = {
+    // Income Protection: planet inside orbital halo (soft, no shield)
+    halo: (
+      <g fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="32" cy="32" r="10" fill={stroke + '1A'} />
+        <circle cx="32" cy="32" r="10" />
+        <ellipse cx="32" cy="32" rx="22" ry="7" transform="rotate(-22 32 32)" />
+        <circle cx="32" cy="32" rx="22" ry="7" />
+        <ellipse cx="32" cy="32" rx="24" ry="9" transform="rotate(-22 32 32)" opacity="0.4" />
+        {/* sparkle */}
+        <path d="M11 14 L12 18 L16 19 L12 20 L11 24 L10 20 L6 19 L10 18 Z" fill={stroke} opacity="0.7" />
+      </g>
+    ),
+    // Retirement Income: Saturn — elegant ringed planet
+    ringed: (
+      <g fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
+        <ellipse cx="32" cy="32" rx="26" ry="5.5" transform="rotate(-15 32 32)" />
+        <circle cx="32" cy="32" r="10" fill={stroke + '1A'} />
+        <circle cx="32" cy="32" r="10" />
+        <path d="M22 30 Q 32 24, 42 30" stroke={stroke} opacity="0.45" />
+        <circle cx="50" cy="14" r="0.9" fill={stroke} />
+      </g>
+    ),
+    // Generational Wealth: constellation (delicate, fewer hard lines)
+    constellation: (
+      <g fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" opacity="0.95">
+        <path d="M12 46 L22 30 L32 38 L42 18 L52 28" opacity="0.55" />
+        {/* 4-pointed sparkle stars */}
+        {[[12,46,2.2],[22,30,2.6],[32,38,2.2],[42,18,3.1],[52,28,2.2]].map(([x,y,r], i) => (
+          <g key={i}>
+            <path d={`M${x} ${y-r} L${x+r*0.4} ${y} L${x} ${y+r} L${x-r*0.4} ${y} Z M${x-r} ${y} L${x} ${y+r*0.4} L${x+r} ${y} L${x} ${y-r*0.4} Z`} fill={stroke} />
+          </g>
+        ))}
+      </g>
+    ),
+    // Cosmic Cadet: comet trail with shooting star (replaces rocket — softer)
+    comet: (
+      <g fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 50 Q 30 40, 44 22" opacity="0.6" />
+        <path d="M14 50 Q 26 44, 38 30" opacity="0.4" />
+        <circle cx="46" cy="20" r="4" fill={stroke + '33'} />
+        <circle cx="46" cy="20" r="4" />
+        <path d="M46 20 L46 12 M46 20 L54 20 M46 20 L52 14" opacity="0.75" />
+        {/* sparkle */}
+        <path d="M18 18 L19 22 L23 23 L19 24 L18 28 L17 24 L13 23 L17 22 Z" fill={stroke} opacity="0.7" />
+      </g>
+    ),
+    // Galaxy Guardian: spiral galaxy with sparkles
+    galaxy: (
+      <g fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M16 32 Q 22 16, 38 18 Q 52 22, 48 36 Q 42 48, 26 46 Q 18 42, 22 32" opacity="0.85" />
+        <path d="M24 32 Q 28 24, 36 24 Q 44 26, 42 34 Q 38 40, 28 38" opacity="0.45" />
+        <circle cx="32" cy="32" r="2.5" fill={stroke} />
+        <path d="M48 12 L49 14 L51 14.5 L49 15 L48 17 L47 15 L45 14.5 L47 14 Z" fill={stroke} opacity="0.8" />
+        <path d="M14 22 L14.5 23 L15.5 23.3 L14.5 23.6 L14 24.5 L13.5 23.6 L12.5 23.3 L13.5 23 Z" fill={stroke} opacity="0.6" />
+      </g>
+    ),
+    // Lunar Legacy: crescent moon with surrounding stars
+    moon: (
+      <g fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M42 16 A 16 16 0 1 0 42 48 A 12 12 0 1 1 42 16 Z" fill={stroke + '1A'} />
+        <path d="M42 16 A 16 16 0 1 0 42 48 A 12 12 0 1 1 42 16 Z" />
+        <path d="M52 12 L53 14 L55 14.5 L53 15 L52 17 L51 15 L49 14.5 L51 14 Z" fill={stroke} opacity="0.85" />
+        <circle cx="56" cy="24" r="1.4" fill={stroke} />
+        <circle cx="52" cy="34" r="0.9" fill={stroke} opacity="0.7" />
+        <circle cx="58" cy="40" r="0.7" fill={stroke} opacity="0.6" />
+      </g>
+    ),
+  };
+  return (
+    <svg width={size} height={size} viewBox="0 0 64 64" style={{ display: 'block' }}>
+      {paths[name]}
+    </svg>
   );
 }
 
@@ -253,12 +450,7 @@ function HomePage({ setPage }) {
   return (
     <>
       <section style={{ background: C.navy, position: 'relative', overflow: 'hidden', minHeight: '92vh', display: 'flex', alignItems: 'center' }}>
-        <div className="hl-glow" style={{ position: 'absolute', bottom: '-20%', left: '50%', transform: 'translateX(-50%)', width: '140%', height: '70%', background: `radial-gradient(ellipse at 50% 100%, ${C.amber}66 0%, ${C.coral}22 30%, transparent 65%)` }} />
-        <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '60%', opacity: 0.3 }}>
-          {[...Array(40)].map((_,i) => (
-            <circle key={i} cx={`${(i*37+13)%100}%`} cy={`${(i*53+7)%80}%`} r={i % 7 === 0 ? 1.5 : 0.8} fill={C.cream} />
-          ))}
-        </svg>
+        <CosmicBackdrop variant="hero" />
 
         <div className="relative max-w-7xl mx-auto px-6 py-24 w-full">
           <div className="hl-fade-up" style={{ animationDelay: '0.05s' }}>
@@ -297,14 +489,17 @@ function HomePage({ setPage }) {
 
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              { num: '01', title: 'Income Protection', body: "Life, disability, and critical illness coverage that actually fits how your family lives. The basics done well, without upselling what you don't need.", accent: C.amber },
-              { num: '02', title: 'Retirement Income', body: 'A plan for converting RRSPs and savings into reliable income — without outliving the money or leaving a tax mess for your kids.', accent: C.coral },
-              { num: '03', title: 'Generational Wealth', body: 'Estate-aware strategies for middle-income families who want their money to land softly with the next generation, not the CRA.', accent: C.plum },
+              { num: '01', icon: 'halo', title: 'Income Protection', body: "Life, disability, and critical illness coverage that actually fits how your family lives. The basics done well, without upselling what you don't need.", accent: C.amber },
+              { num: '02', icon: 'ringed', title: 'Retirement Income', body: 'A plan for converting RRSPs and savings into reliable income — without outliving the money or leaving a tax mess for your kids.', accent: C.coral },
+              { num: '03', icon: 'constellation', title: 'Generational Wealth', body: 'Estate-aware strategies for middle-income families who want their money to land softly with the next generation, not the CRA.', accent: C.plum },
             ].map((p) => (
               <div key={p.num} className="hl-lift" style={{ background: C.white, padding: '40px 32px', borderRadius: 4, border: `1px solid ${C.border}`, position: 'relative', overflow: 'hidden' }}>
                 <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: 3, background: p.accent }}/>
-                <div className="hl-display" style={{ fontSize: 56, color: p.accent, fontWeight: 800, lineHeight: 1, opacity: 0.4 }}>{p.num}</div>
-                <h3 className="hl-display" style={{ fontSize: 26, fontWeight: 700, color: C.navy, marginTop: 16, marginBottom: 12 }}>{p.title}</h3>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                  <CosmicIcon name={p.icon} color={p.accent} size={56} />
+                  <div className="hl-display" style={{ fontSize: 48, color: p.accent, fontWeight: 800, lineHeight: 1, opacity: 0.25 }}>{p.num}</div>
+                </div>
+                <h3 className="hl-display" style={{ fontSize: 26, fontWeight: 700, color: C.navy, marginTop: 20, marginBottom: 12 }}>{p.title}</h3>
                 <p style={{ color: C.charcoalSoft, lineHeight: 1.6, fontSize: 15 }}>{p.body}</p>
               </div>
             ))}
@@ -380,7 +575,7 @@ function AboutPage() {
   return (
     <>
       <section style={{ background: C.navy, padding: '100px 0 80px', color: C.cream, position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', bottom: 0, right: '-10%', width: '60%', height: '100%', background: `radial-gradient(circle at 80% 80%, ${C.amber}33 0%, transparent 60%)` }}/>
+        <CosmicBackdrop variant="header" />
         <div className="relative max-w-7xl mx-auto px-6">
           <div className="hl-eyebrow" style={{ color: C.amber, marginBottom: 20 }}>About Horizon Launch</div>
           <h1 className="hl-display" style={{ fontSize: 'clamp(40px, 5.5vw, 72px)', fontWeight: 700, lineHeight: 1.05, maxWidth: '18ch' }}>
@@ -424,15 +619,15 @@ function AboutPage() {
 // ============================================================
 function ServicesPage({ setPage }) {
   const plans = [
-    { name: 'Cosmic Cadet', tagline: "Children's Plan", headline: 'Set their future in motion.',
+    { name: 'Cosmic Cadet', icon: 'comet', tagline: "Children's Plan", headline: 'Set their future in motion.',
       body: 'Build a financial foundation that grows with them — for education, milestones, and lifelong security.',
       includes: ['RESPs with government-backed grant matching', 'Child wealth plans (life + critical illness)', 'Million Dollar Baby Strategy', 'RDSPs for children with disabilities'],
       accent: C.amber },
-    { name: 'Galaxy Guardian', tagline: 'Family Plan', headline: 'Protect what matters most.',
+    { name: 'Galaxy Guardian', icon: 'galaxy', tagline: 'Family Plan', headline: 'Protect what matters most.',
       body: 'Build wealth, reduce taxes, and create protection that lasts through every season of life.',
       includes: ['TFSA, FHSA, RRSP, RDSP investing', "Build your own pension when an employer doesn't", 'Insurance that builds wealth', 'Tax-efficient planning'],
       accent: C.coral },
-    { name: 'Lunar Legacy', tagline: 'Retirement Plan', headline: 'Leave a lasting mark.',
+    { name: 'Lunar Legacy', icon: 'moon', tagline: 'Retirement Plan', headline: 'Leave a lasting mark.',
       body: 'Design a tax-efficient drawdown strategy that sustains your lifestyle and creates a meaningful legacy.',
       includes: ['Bucket strategy for sustainable withdrawals', 'RRSP & RRIF transition planning', 'LIRA access strategies', 'Estate planning + segregated funds'],
       accent: C.plum },
@@ -441,7 +636,7 @@ function ServicesPage({ setPage }) {
   return (
     <>
       <section style={{ background: C.navy, color: C.cream, padding: '100px 0', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', height: '60%', background: `radial-gradient(ellipse at center bottom, ${C.amber}33 0%, transparent 60%)` }}/>
+        <CosmicBackdrop variant="header" />
         <div className="relative max-w-7xl mx-auto px-6">
           <div className="hl-eyebrow" style={{ color: C.amber, marginBottom: 20 }}>Services</div>
           <h1 className="hl-display" style={{ fontSize: 'clamp(40px, 5.5vw, 72px)', fontWeight: 700, lineHeight: 1.05, maxWidth: '20ch' }}>
@@ -459,6 +654,7 @@ function ServicesPage({ setPage }) {
             {plans.map((p) => (
               <div key={p.name} className="hl-lift" style={{ background: C.white, padding: '40px 32px', borderRadius: 4, border: `1px solid ${C.border}`, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: p.accent }}/>
+                <div style={{ marginBottom: 12 }}><CosmicIcon name={p.icon} color={p.accent} size={56} /></div>
                 <div className="hl-eyebrow" style={{ color: p.accent, marginBottom: 8 }}>{p.tagline}</div>
                 <h3 className="hl-display" style={{ fontSize: 32, fontWeight: 700, color: C.navy, marginBottom: 12 }}>{p.name}</h3>
                 <p className="hl-display" style={{ fontSize: 18, color: C.charcoal, fontStyle: 'italic', marginBottom: 16 }}>{p.headline}</p>
@@ -510,7 +706,7 @@ function EventsPage() {
   return (
     <>
       <section style={{ background: C.navy, color: C.cream, padding: '100px 0', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: 0, right: 0, width: '50%', height: '100%', background: `radial-gradient(circle at 100% 0%, ${C.coral}33 0%, transparent 60%)` }}/>
+        <CosmicBackdrop variant="header" />
         <div className="relative max-w-7xl mx-auto px-6">
           <div className="hl-eyebrow" style={{ color: C.amber, marginBottom: 20 }}>Events</div>
           <h1 className="hl-display" style={{ fontSize: 'clamp(40px, 5.5vw, 72px)', fontWeight: 700, lineHeight: 1.05, maxWidth: '20ch' }}>
@@ -627,7 +823,7 @@ function ContactPage() {
   return (
     <>
       <section style={{ background: C.navy, color: C.cream, padding: '100px 0', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', bottom: 0, left: 0, width: '60%', height: '80%', background: `radial-gradient(circle at 0% 100%, ${C.amber}44 0%, transparent 60%)` }}/>
+        <CosmicBackdrop variant="header" />
         <div className="relative max-w-7xl mx-auto px-6">
           <div className="hl-eyebrow" style={{ color: C.amber, marginBottom: 20 }}>Get in touch</div>
           <h1 className="hl-display" style={{ fontSize: 'clamp(40px, 5.5vw, 72px)', fontWeight: 700, lineHeight: 1.05, maxWidth: '18ch' }}>
